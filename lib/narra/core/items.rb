@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Narra Core. If not, see <http://www.gnu.org/licenses/>.
 #
-# Authors: Michal Mocnak <michal@marigan.net>
+# Authors: Michal Mocnak <michal@marigan.net>, Petr Pulc <petrpulc@gmail.com>
 #
 
 module Narra
@@ -46,23 +46,12 @@ module Narra
         # item container
         item = nil
 
-        # recognize type
-        case connector.type
-          when :video
-            # create specific item
-            item = Narra::Video.new(name: connector.name, url: url, library: library)
-            # push specific metadata
-            item.meta << Narra::MetaItem.new(name: 'type', value: :video, generator: :source)
-          when :image
-            # create specific item
-            item = Narra::Image.new(name: connector.name, url: url, library: library)
-            # push specific metadata
-            item.meta << Narra::MetaItem.new(name: 'type', value: :image, generator: :source)
-          when :audio
-            # create specific item
-            item = Narra::Audio.new(name: connector.name, url: url, library: library)
-            # push specific metadata
-            item.meta << Narra::MetaItem.new(name: 'type', value: :audio, generator: :source)
+        if [:video, :image, :audio].include? connector.type
+          # create specific item
+          const = Narra.const_get(connector.type.to_s.capitalize)
+          item = const.new(name: connector.name, url: url, library: library)
+          # push specific metadata
+          item.meta << Narra::MetaItem.new(name: 'type', value: connector.name, generator: :source)
         end
 
         # create source metadata from essential fields
@@ -88,7 +77,7 @@ module Narra
         process(type: :transcoder, item: item._id.to_s, identifier: connector.download_url)
 
         # return item
-        return item
+        item
       end
     end
   end
