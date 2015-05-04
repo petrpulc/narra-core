@@ -39,26 +39,38 @@ module Narra
         begin
           # set start progress
           set_progress(progress_from)
-
-          # set up transcode options
-          @proxy_lq = transcode_object('lq')
-          @proxy_hq = transcode_object('hq')
-
-          # calculate progress portion
-          progress_lq = (progress_to - progress_from) / 3
-          progress_hq = progress_lq * 2
+          
+          # set transcoding profiles
+          @profiles = []
+          
+          # assigned progress part
+          progress_d = progress_to - progress_from
+          
+          # proxy profiles
+          @profiles << transcode_proxy_object('lq', progress_d / 4)
+          @profiles << transcode_proxy_object('hq', progress_d / 2)
+          # profile for downloadable file
+          @profiles << {
+            file: Narra::Tools::Settings.storage_temp + '/' + @item._id.to_s + '_video_copy.mp4',
+            key: 'video_copy.mp4',
+            options: '-q:v 3 -q:a 4',
+            progress_part: progress_d / 4,
+            name: 'video_copy'
+          }
 
           # start transcode process
-          @raw.transcode(@proxy_lq[:file], @proxy_lq[:options]) { |progress| set_progress(progress_from + (progress * progress_lq).to_f) }
-          @raw.transcode(@proxy_hq[:file], @proxy_hq[:options]) { |progress| set_progress(progress_from + progress_lq + (progress * progress_hq).to_f) }
-
-          # save into storage
-          proxy_lq_url = @item.create_file(@proxy_lq[:key], File.open(@proxy_lq[:file])).public_url
-          proxy_hq_url = @item.create_file(@proxy_hq[:key], File.open(@proxy_hq[:file])).public_url
-
-          # add proxy files metadata
-          add_meta(generator: :transcoder, name: 'video_proxy_lq', value: proxy_lq_url)
-          add_meta(generator: :transcoder, name: 'video_proxy_hq', value: proxy_hq_url)
+          progress_done = 0
+          
+          @profiles.each do |profile|
+            @raw.transcode(profile[:file], profile[:options]) do |progress|
+              set_progress(progress_from + progress_done + (progress * profile[:progress_part]).to_f)
+            end
+            
+            url = @item.create_file(profile[:key], File.open(profile[:file])).public_url
+            add_meta(generator: :transcoder, name: profile[:name], value: url)
+            
+            progress_done+= profile[:progress_part]
+          end
         rescue => e
           #clean
           clean
@@ -74,14 +86,16 @@ module Narra
 
       def clean
         # clean temp transcodes
-        FileUtils.rm_f([@proxy_lq[:file], @proxy_hq[:file]])
+        FileUtils.rm_f(@profiles.collect {|p| p[:file]})
       end
 
-      def transcode_object(type)
+      def transcode_proxy_object(type, progress_part)
         {
             file: Narra::Tools::Settings.storage_temp + '/' + @item._id.to_s + '_video_proxy_' + type + '.' + Narra::Tools::Settings.video_proxy_extension,
             key: 'video_proxy_' + type + '.' + Narra::Tools::Settings.video_proxy_extension,
-            options: {video_bitrate: Narra::Tools::Settings.get('video_proxy_' + type + '_bitrate'), video_bitrate_tolerance: 100, resolution: Narra::Tools::Settings.get('video_proxy_' + type + '_resolution')}
+            options: {video_bitrate: Narra::Tools::Settings.get('video_proxy_' + type + '_bitrate'), video_bitrate_tolerance: 100, resolution: Narra::Tools::Settings.get('video_proxy_' + type + '_resolution')},
+            progress_part: progress_part,
+            name: 'video_proxy_' + type
         }
       end
     end
