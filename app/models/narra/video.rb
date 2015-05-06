@@ -30,6 +30,10 @@ module Narra
     def video_proxy_hq
       @video_proxy_hq ||= get_file('video_proxy_hq.' + Narra::Tools::Settings.video_proxy_extension)
     end
+    
+    def video_copy
+      @video_copy ||= get_file('video_copy.mp4')
+    end
 
     def audio_proxy
       @audio_proxy ||= get_file('audio_proxy.' + Narra::Tools::Settings.audio_proxy_extension)
@@ -41,6 +45,10 @@ module Narra
 
     def url_video_proxy_hq
       @url_video_proxy_hq ||= meta.where(generator: :transcoder, name: 'video_proxy_hq').collect { |meta| meta.value }.first
+    end
+    
+    def url_video_copy
+      @url_video_copy ||= meta.where(generator: :transcoder, name: 'video_copy').collect { |meta| meta.value }.first
     end
 
     def url_audio_proxy
